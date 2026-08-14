@@ -2,6 +2,29 @@ import streamlit as st
 import pandas as pd
 import re
 
+# --- SEGURIDAD ---
+def check_password():
+    def password_entered():
+        if st.session_state["password"] == "1234": # CAMBIA "1234" POR LA CONTRASEÑA QUE QUIERAS
+            st.session_state["password_correct"] = True
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("Ingresa la contraseña para acceder:", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("Ingresa la contraseña para acceder:", type="password", on_change=password_entered, key="password")
+        st.error("Contraseña incorrecta")
+        return False
+    else:
+        return True
+
+if not check_password():
+    st.stop() # Detiene la ejecución si no hay contraseña
+
+# --- A PARTIR DE AQUÍ VA EL CÓDIGO QUE YA TENÍAS ---
+
 # Configuración de la página
 st.set_page_config(page_title="Gestor de Denuncias - Quiron", layout="wide")
 

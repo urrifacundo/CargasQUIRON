@@ -43,7 +43,7 @@ def cargar_bases():
 
 df_comisarias, df_caratulas = cargar_bases()
 
-st.title("📋 Asistente de Carga de Denuncias")
+st.title("Asistente de Carga de Denuncias")
 st.write("Pega el texto completo de la denuncia para autocompletar todos los campos del sistema.")
 
 # Área de texto para la denuncia
@@ -84,8 +84,8 @@ if st.button("Procesar Denuncia", type="primary"):
                 jurisdiccion = str(match.iloc[0]['analisis_jurisdiccion'])
 
         # 5. Detección automática según Guía Quirón oficial
-        caratula_detectada = ""
-        modalidad_detectada = ""
+        caratula_detectada = "Estafa"
+        modalidad_detectada = "Informatica"
         
         texto_lower = texto_denuncia.lower()
         
@@ -98,7 +98,7 @@ if st.button("Procesar Denuncia", type="primary"):
         elif "marketplace" in texto_lower or "facebook" in texto_lower:
             caratula_detectada = "Estafa"
             modalidad_detectada = "MarketPlace"
-        elif "whatsapp" in texto_lower or "chات" in texto_lower:
+        elif "whatsapp" in texto_lower or "chat" in texto_lower:
             caratula_detectada = "Estafa"
             modalidad_detectada = "WhatsApp"
         elif "robo" in texto_lower or "sustrajeron" in texto_lower:
@@ -110,6 +110,24 @@ if st.button("Procesar Denuncia", type="primary"):
         else:
             caratula_detectada = "Estafa"
             modalidad_detectada = "Otros"
+
+        # 6. Detección automática de Género para Víctima e Imputado
+        genero_victima = "Masculino"
+        if "la denunciante" in texto_lower or "comparece... una mujer" in texto_lower or "sra." in texto_lower:
+            genero_victima = "Femenino"
+        
+        genero_imputado = "Ninguno"
+        tiene_masculino = "masculino" in texto_lower or "hombre" in texto_lower or "sujeto" in texto_lower
+        tiene_femenino = "femenino" in texto_lower or "mujer" in texto_lower or "una mujer" in texto_lower or "señora" in texto_lower
+        
+        if tiene_masculino and tiene_femenino:
+            genero_imputado = "Ambos"
+        elif tiene_masculino:
+            genero_imputado = "Masculino"
+        elif tiene_femenino:
+            genero_imputado = "Femenino"
+        else:
+            genero_imputado = "Ambos" if "estafa" in texto_lower or "cuenta" in texto_lower else "Ninguno"
 
         # --- ORDEN EXACTO SEGÚN LA IMAGEN DEL SISTEMA ---
         st.success("¡Denuncia procesada con éxito! Copia los campos necesarios:")
@@ -129,12 +147,12 @@ if st.button("Procesar Denuncia", type="primary"):
         with col2:
             st.text_input("Caratula", value=caratula_detectada)
             st.text_input("Modalidad", value=modalidad_detectada)
-            st.text_input("Imputados", value="")
-            st.text_input("Victimas", value=victima)
+            st.text_input("Imputados", value=genero_imputado)
+            st.text_input("Victimas", value=genero_victima)
             st.text_input("Menores", value="")
             st.text_input("Lesionados", value="")
             st.text_input("Armas", value="")
 
         st.text_area("Observaciones", value="", height=80)
         
-        st.info("💡 Haz clic dentro de cualquier caja de texto para copiar el contenido y pegarlo rápidamente en tu sistema.")
+        st.info("Haz clic dentro de cualquier caja de texto para copiar el contenido y pegarlo rápidamente en tu sistema.")

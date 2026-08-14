@@ -64,7 +64,7 @@ if st.button("Procesar Denuncia", type="primary"):
 
         hora_match = re.search(r"siendo las\s+(\d{1,2}\.\d{2}|\d{1,2}:\d{2})\s+horas", texto_denuncia, re.IGNORECASE)
         if not hora_match:
-            hora_match = re.search(r"aproximadamente las\s+(\d{1,2}:\d{2})\s+horas", texto_denuncia, re.IGNORECASE)
+            hora_match = re.search(r"aproximadamente las\s+(\d{1,2}:\d{2})\s+hs", texto_denuncia, re.IGNORECASE)
         hora_hecho = hora_match.group(1).replace(".", ":") if hora_match else ""
 
         victima_match = re.search(r"manifestando ser y llamarse:\s+([A-ZÁÉÍÓÚ\s]+),", texto_denuncia)
@@ -81,36 +81,68 @@ if st.button("Procesar Denuncia", type="primary"):
             if not match.empty:
                 jurisdiccion = str(match.iloc[0]['analisis_jurisdiccion'])
 
+        def tiene_palabra(palabras, texto):
+            for p in palabras:
+                if re.search(r'\b' + p + r'\b', texto):
+                    return True
+            return False
+
         caratula_detectada = ""
         modalidad_detectada = ""
-        
         texto_lower = texto_denuncia.lower()
         
-        if "arma de fuego" in texto_lower or "intimidaron" in texto_lower or "robo" in texto_lower or "asaltaron" in texto_lower or "sustrajeron" in texto_lower:
-            if "vehiculo" in texto_lower or "auto" in texto_lower or "rodado" in texto_lower:
+        if tiene_palabra(["disparo", "disparos", "detonaciones", "detonación"], texto_lower) and tiene_palabra(["arma", "fuego"], texto_lower) and not tiene_palabra(["robo", "robó", "robaron", "sustrajeron", "asaltaron"], texto_lower):
+            caratula_detectada = "Abuso de Arma"
+            modalidad_detectada = "Abuso de Arma"
+            
+        elif tiene_palabra(["robo", "robaron", "sustrajeron", "sustraído", "llevó", "asaltaron"], texto_lower) and tiene_palabra(["vehículo", "vehiculo", "auto", "automóvil", "automovil", "moto", "motovehículo", "motocicleta", "camioneta"], texto_lower):
+            if tiene_palabra(["moto", "motovehículo", "motocicleta"], texto_lower):
+                caratula_detectada = "Sustraccion Motovehiculo"
+            else:
                 caratula_detectada = "Sustraccion Automotor"
+                
+            if tiene_palabra(["arma", "intimidaron", "amenazaron"], texto_lower):
                 modalidad_detectada = "Asalto"
             else:
-                caratula_detectada = "Robo"
-                modalidad_detectada = "Asalto en Via Publica"
-        elif "hurto" in texto_lower:
+                modalidad_detectada = "Levantamiento"
+
+        elif tiene_palabra(["robo", "asaltaron", "sustrajeron", "robaron", "arma", "intimidaron"], texto_lower) and not tiene_palabra(["disparo", "detonaciones"], texto_lower):
+            caratula_detectada = "Robo"
+            modalidad_detectada = "Asalto en Via Publica"
+
+        elif tiene_palabra(["hurto", "hurtaron"], texto_lower):
             caratula_detectada = "Hurto"
             modalidad_detectada = "Hurto"
-        elif "tarjeta" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower:
+
+        elif tiene_palabra(["tarjeta", "home banking", "transferencia", "mercadopago", "estafa", "engaño", "cuento del tío", "cuento del tio", "whatsapp", "facebook", "marketplace"], texto_lower):
             caratula_detectada = "Estafa"
-            modalidad_detectada = "Informatica"
-        elif "cuento del tío" in texto_lower or "cuento del tio" in texto_lower:
-            caratula_detectada = "Estafa"
-            modalidad_detectada = "Cuento del Tio"
+            if tiene_palabra(["cuento del tío", "cuento del tio"], texto_lower):
+                modalidad_detectada = "Cuento del Tio"
+            elif tiene_palabra(["marketplace", "facebook"], texto_lower):
+                modalidad_detectada = "MarketPlace"
+            elif tiene_palabra(["whatsapp", "chat"], texto_lower):
+                modalidad_detectada = "WhatsApp"
+            else:
+                modalidad_detectada = "Informatica"
+
         else:
-            caratula_detectada = "Estafa"
-            modalidad_detectada = "Otros"
+            caratula_detectada = "Averiguacion de Ilícito"
+            modalidad_detectada = "Sin Modalidad"
 
         genero_victima = "Masculino"
-        if "la denunciante" in texto_lower or "comparece... una mujer" in texto_lower or "sra." in texto_lower:
+        if tiene_palabra(["propietaria", "la denunciante", "una mujer", "sra"], texto_lower):
             genero_victima = "Femenino"
+            
+        genero_imputado = "Ninguno"
+        tiene_masc = tiene_palabra(["masculino", "hombre", "sujeto", "hombres", "sujetos", "un vecino", "el mismo"], texto_lower)
+        tiene_fem = tiene_palabra(["femenino", "mujer", "una mujer", "señora"], texto_lower)
         
-        genero_imputado = "Masculino" if "masculino" in texto_lower or "sujetos" in texto_lower or "personas" in texto_lower else "Ninguno"
+        if tiene_masc and tiene_fem:
+            genero_imputado = "Ambos"
+        elif tiene_masc:
+            genero_imputado = "Masculino"
+        elif tiene_fem:
+            genero_imputado = "Femenino"
 
         st.success("¡Denuncia procesada con éxito! Copia los campos necesarios:")
 
@@ -136,5 +168,3 @@ if st.button("Procesar Denuncia", type="primary"):
             st.text_input("Armas", value="")
 
         st.text_area("Observaciones", value="", height=80)
-        
-        st.info("Haz clic dentro de cualquier caja de texto para copiar el contenido y pegarlo rápidamente en tu sistema.")

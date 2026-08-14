@@ -3,10 +3,8 @@ import pandas as pd
 import re
 import os
 
-# Configuración de la página
 st.set_page_config(page_title="Gestor de Denuncias - Quirón", layout="wide")
 
-# --- SEGURIDAD (CONTRASEÑA) ---
 def check_password():
     def password_entered():
         if st.session_state["password"] == "1234":
@@ -27,7 +25,6 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- CARGA DE BASES DE DATOS ---
 @st.cache_data
 def cargar_bases():
     df_comisarias = pd.DataFrame()
@@ -46,34 +43,35 @@ df_comisarias, df_caratulas = cargar_bases()
 st.title("Asistente de Carga de Denuncias")
 st.write("Pega el texto completo de la denuncia para autocompletar todos los campos del sistema.")
 
-# Área de texto para la denuncia
-texto_denuncia = st.text_area("Pega aquí el texto de la denuncia:", height=220, placeholder="Ej: En la ciudad de Rafael Castillo, partido de La Matanza...")
+texto_denuncia = st.text_area("Pega aquí el texto de la denuncia:", height=220, placeholder="Ej: En la ciudad de Rafael Castillo...")
 
 if st.button("Procesar Denuncia", type="primary"):
     if texto_denuncia.strip() == "":
         st.warning("Por favor, ingresa un texto de denuncia.")
     else:
-        # --- EXTRACCIÓN AUTOMÁTICA DE DATOS ---
-        
-        # 1. Partido y Localidad
         partido_match = re.search(r"partido de\s+([\w\s]+),", texto_denuncia, re.IGNORECASE)
-        localidad_match = re.search(r"ciudad de\s+([\w\s]+),", texto_denuncia, re.IGNORECASE)
+        localidad_match = re.search(r"localidad de\s+([\w\s]+),", texto_denuncia, re.IGNORECASE)
+        if not localidad_match:
+            localidad_match = re.search(r"ciudad de\s+([\w\s]+),", texto_denuncia, re.IGNORECASE)
         
         partido = partido_match.group(1).strip().upper() if partido_match else ""
         localidad = localidad_match.group(1).strip().upper() if localidad_match else ""
         
-        # 2. Fecha y Hora del hecho
-        fecha_match = re.search(r"fecha\s+(\d{1,2}\s+de\s+[\w\s]+?(?:del corriente año|\d{4}))", texto_denuncia, re.IGNORECASE)
+        fecha_match = re.search(r"a los\s+(\d{1,2}\s+días\s+del\s+mes\s+de\s+[\w\s]+?(?:del año\s+\d{4}|\d{4}))", texto_denuncia, re.IGNORECASE)
+        if not fecha_match:
+            fecha_match = re.search(r"fecha\s+(\d{1,2}\s+de\s+[\w\s]+)", texto_denuncia, re.IGNORECASE)
         fecha_hecho = fecha_match.group(1) if fecha_match else ""
 
-        hora_match = re.search(r"aproximadamente las\s+(\d{1,2}:\d{2})\s+horas", texto_denuncia, re.IGNORECASE)
-        hora_hecho = hora_match.group(1) if hora_match else ""
+        hora_match = re.search(r"siendo las\s+(\d{1,2}\.\d{2}|\d{1,2}:\d{2})\s+horas", texto_denuncia, re.IGNORECASE)
+        if not hora_match:
+            hora_match = re.search(r"aproximadamente las\s+(\d{1,2}:\d{2})\s+horas", texto_denuncia, re.IGNORECASE)
+        hora_hecho = hora_match.group(1).replace(".", ":") if hora_match else ""
 
-        # 3. Víctima / Denunciante
-        victima_match = re.search(r"manifestando ser\s+([A-ZÁÉÍÓÚ\s]+),", texto_denuncia)
+        victima_match = re.search(r"manifestando ser y llamarse:\s+([A-ZÁÉÍÓÚ\s]+),", texto_denuncia)
+        if not victima_match:
+            victima_match = re.search(r"manifestando ser\s+([A-ZÁÉÍÓÚ\s]+),", texto_denuncia)
         victima = victima_match.group(1).strip() if victima_match else ""
 
-        # 4. Búsqueda de Comisaría (Jurisdicción)
         jurisdiccion = "No encontrada automáticamente"
         if not df_comisarias.empty and partido and localidad:
             match = df_comisarias[
@@ -83,53 +81,37 @@ if st.button("Procesar Denuncia", type="primary"):
             if not match.empty:
                 jurisdiccion = str(match.iloc[0]['analisis_jurisdiccion'])
 
-        # 5. Detección automática según Guía Quirón oficial
-        caratula_detectada = "Estafa"
-        modalidad_detectada = "Informatica"
+        caratula_detectada = ""
+        modalidad_detectada = ""
         
         texto_lower = texto_denuncia.lower()
         
-        if "tarjeta" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower or "correo electrónico" in texto_lower:
+        if "arma de fuego" in texto_lower or "intimidaron" in texto_lower or "robo" in texto_lower or "asaltaron" in texto_lower or "sustrajeron" in texto_lower:
+            if "vehiculo" in texto_lower or "auto" in texto_lower or "rodado" in texto_lower:
+                caratula_detectada = "Sustraccion Automotor"
+                modalidad_detectada = "Asalto"
+            else:
+                caratula_detectada = "Robo"
+                modalidad_detectada = "Asalto en Via Publica"
+        elif "hurto" in texto_lower:
+            caratula_detectada = "Hurto"
+            modalidad_detectada = "Hurto"
+        elif "tarjeta" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower:
             caratula_detectada = "Estafa"
             modalidad_detectada = "Informatica"
         elif "cuento del tío" in texto_lower or "cuento del tio" in texto_lower:
             caratula_detectada = "Estafa"
             modalidad_detectada = "Cuento del Tio"
-        elif "marketplace" in texto_lower or "facebook" in texto_lower:
-            caratula_detectada = "Estafa"
-            modalidad_detectada = "MarketPlace"
-        elif "whatsapp" in texto_lower or "chat" in texto_lower:
-            caratula_detectada = "Estafa"
-            modalidad_detectada = "WhatsApp"
-        elif "robo" in texto_lower or "sustrajeron" in texto_lower:
-            caratula_detectada = "Robo"
-            modalidad_detectada = "Asalto en Via Publica"
-        elif "hurto" in texto_lower:
-            caratula_detectada = "Hurto"
-            modalidad_detectada = "Hurto"
         else:
             caratula_detectada = "Estafa"
             modalidad_detectada = "Otros"
 
-        # 6. Detección automática de Género para Víctima e Imputado
         genero_victima = "Masculino"
         if "la denunciante" in texto_lower or "comparece... una mujer" in texto_lower or "sra." in texto_lower:
             genero_victima = "Femenino"
         
-        genero_imputado = "Ninguno"
-        tiene_masculino = "masculino" in texto_lower or "hombre" in texto_lower or "sujeto" in texto_lower
-        tiene_femenino = "femenino" in texto_lower or "mujer" in texto_lower or "una mujer" in texto_lower or "señora" in texto_lower
-        
-        if tiene_masculino and tiene_femenino:
-            genero_imputado = "Ambos"
-        elif tiene_masculino:
-            genero_imputado = "Masculino"
-        elif tiene_femenino:
-            genero_imputado = "Femenino"
-        else:
-            genero_imputado = "Ambos" if "estafa" in texto_lower or "cuenta" in texto_lower else "Ninguno"
+        genero_imputado = "Masculino" if "masculino" in texto_lower or "sujetos" in texto_lower or "personas" in texto_lower else "Ninguno"
 
-        # --- ORDEN EXACTO SEGÚN LA IMAGEN DEL SISTEMA ---
         st.success("¡Denuncia procesada con éxito! Copia los campos necesarios:")
 
         col1, col2 = st.columns(2)

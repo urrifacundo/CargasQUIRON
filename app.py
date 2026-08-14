@@ -9,7 +9,7 @@ st.set_page_config(page_title="Gestor de Denuncias - Quirón", layout="wide")
 # --- SEGURIDAD (CONTRASEÑA) ---
 def check_password():
     def password_entered():
-        if st.session_state["password"] == "1234":  # Puedes cambiar "1234" por la contraseña que prefieras
+        if st.session_state["password"] == "1234":
             st.session_state["password_correct"] = True
         else:
             st.session_state["password_correct"] = False
@@ -53,7 +53,7 @@ if st.button("Procesar Denuncia", type="primary"):
     if texto_denuncia.strip() == "":
         st.warning("Por favor, ingresa un texto de denuncia.")
     else:
-        # --- EXTRACCIÓN AUTOMÁTICA DE DATOS (NLP BÁSICO) ---
+        # --- EXTRACCIÓN AUTOMÁTICA DE DATOS ---
         
         # 1. Partido y Localidad
         partido_match = re.search(r"partido de\s+([\w\s]+),", texto_denuncia, re.IGNORECASE)
@@ -83,10 +83,31 @@ if st.button("Procesar Denuncia", type="primary"):
             if not match.empty:
                 jurisdiccion = str(match.iloc[0]['analisis_jurisdiccion'])
 
+        # 5. Detección automática de Carátula y Modalidad según texto
+        caratula_detectada = ""
+        modalidad_detectada = ""
+        
+        texto_lower = texto_denuncia.lower()
+        
+        # Lógica de detección basada en palabras clave comunes
+        if "tarjeta de crédito" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower:
+            caratula_detectada = "Defraudación"  # O el nombre exacto que figure en tu Excel Quirón
+            modalidad_detectada = "Informática / Estafa"
+        elif "robo" in texto_lower or "sustrajeron" in texto_lower:
+            caratula_detectada = "Robo"
+            modalidad_detectada = "General"
+        elif "hurto" in texto_lower:
+            caratula_detectada = "Hurto"
+            modalidad_detectada = "General"
+        else:
+            # Si hay datos en el Excel, tomamos el primero por defecto o buscamos coincidencia general
+            if not df_caratulas.empty:
+                caratula_detectada = str(df_caratulas.iloc[0]['Caratula'])
+                modalidad_detectada = str(df_caratulas.iloc[0]['Modalidad'])
+
         # --- ORDEN EXACTO SEGÚN LA IMAGEN DEL SISTEMA ---
         st.success("¡Denuncia procesada con éxito! Copia los campos necesarios:")
 
-        # Dividimos en dos columnas para una visualización cómoda y ordenada
         col1, col2 = st.columns(2)
 
         with col1:
@@ -100,20 +121,9 @@ if st.button("Procesar Denuncia", type="primary"):
             st.text_input("Tipo de lugar", value="")
 
         with col2:
-            # Selector inteligente de Carátulas basadas en tu Excel Quirón
-            lista_caratulas = []
-            if not df_caratulas.empty:
-                lista_caratulas = df_caratulas['Caratula'].dropna().unique().tolist()
-            
-            caratula_seleccionada = st.selectbox("Caratula", options=["Seleccione una..."] + lista_caratulas)
-            
-            modalidad = ""
-            if caratula_seleccionada != "Seleccione una..." and not df_caratulas.empty:
-                mod_row = df_caratulas[df_caratulas['Caratula'] == caratula_seleccionada]
-                if not mod_row.empty:
-                    modalidad = str(mod_row.iloc[0]['Modalidad'])
-
-            st.text_input("Modalidad", value=modalidad if modalidad != "nan" else "")
+            # Ahora son cajas de texto normales autocompletadas en vez de selectores desplegables
+            st.text_input("Caratula", value=caratula_detectada)
+            st.text_input("Modalidad", value=modalidad_detectada if modalidad_detectada != "nan" else "")
             st.text_input("Imputados", value="")
             st.text_input("Victimas", value=victima)
             st.text_input("Menores", value="")

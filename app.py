@@ -83,27 +83,33 @@ if st.button("Procesar Denuncia", type="primary"):
             if not match.empty:
                 jurisdiccion = str(match.iloc[0]['analisis_jurisdiccion'])
 
-        # 5. Detección automática de Carátula y Modalidad según texto
+        # 5. Detección automática según Guía Quirón oficial
         caratula_detectada = ""
         modalidad_detectada = ""
         
         texto_lower = texto_denuncia.lower()
         
-        # Lógica de detección basada en palabras clave comunes
-        if "tarjeta de crédito" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower:
-            caratula_detectada = "Defraudación"  # O el nombre exacto que figure en tu Excel Quirón
-            modalidad_detectada = "Informática / Estafa"
+        if "tarjeta" in texto_lower or "home banking" in texto_lower or "transferencia" in texto_lower or "mercadopago" in texto_lower or "correo electrónico" in texto_lower:
+            caratula_detectada = "Estafa"
+            modalidad_detectada = "Informatica"
+        elif "cuento del tío" in texto_lower or "cuento del tio" in texto_lower:
+            caratula_detectada = "Estafa"
+            modalidad_detectada = "Cuento del Tio"
+        elif "marketplace" in texto_lower or "facebook" in texto_lower:
+            caratula_detectada = "Estafa"
+            modalidad_detectada = "MarketPlace"
+        elif "whatsapp" in texto_lower or "chات" in texto_lower:
+            caratula_detectada = "Estafa"
+            modalidad_detectada = "WhatsApp"
         elif "robo" in texto_lower or "sustrajeron" in texto_lower:
             caratula_detectada = "Robo"
-            modalidad_detectada = "General"
+            modalidad_detectada = "Asalto en Via Publica"
         elif "hurto" in texto_lower:
             caratula_detectada = "Hurto"
-            modalidad_detectada = "General"
+            modalidad_detectada = "Hurto"
         else:
-            # Si hay datos en el Excel, tomamos el primero por defecto o buscamos coincidencia general
-            if not df_caratulas.empty:
-                caratula_detectada = str(df_caratulas.iloc[0]['Caratula'])
-                modalidad_detectada = str(df_caratulas.iloc[0]['Modalidad'])
+            caratula_detectada = "Estafa"
+            modalidad_detectada = "Otros"
 
         # --- ORDEN EXACTO SEGÚN LA IMAGEN DEL SISTEMA ---
         st.success("¡Denuncia procesada con éxito! Copia los campos necesarios:")
@@ -121,9 +127,8 @@ if st.button("Procesar Denuncia", type="primary"):
             st.text_input("Tipo de lugar", value="")
 
         with col2:
-            # Ahora son cajas de texto normales autocompletadas en vez de selectores desplegables
             st.text_input("Caratula", value=caratula_detectada)
-            st.text_input("Modalidad", value=modalidad_detectada if modalidad_detectada != "nan" else "")
+            st.text_input("Modalidad", value=modalidad_detectada)
             st.text_input("Imputados", value="")
             st.text_input("Victimas", value=victima)
             st.text_input("Menores", value="")
